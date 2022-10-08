@@ -13,6 +13,8 @@
 
 using namespace Ubpa;
 
+bool isClean = false;
+
 void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 	schedule.RegisterCommand([](Ubpa::UECS::World* w) {
 		auto data = w->entityMngr.GetSingleton<CanvasData>();
@@ -22,12 +24,16 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 		if (ImGui::Begin("Canvas")) {
 			ImGui::Checkbox("Enable grid", &data->opt_enable_grid);
 			ImGui::Checkbox("Enable context menu", &data->opt_enable_context_menu);
-			ImGui::Text("Mouse Left: drag to add lines,\nMouse Right: drag to scroll, click for context menu.");
+			ImGui::Text("Mouse Left: drag to add lines, Mouse Right: drag to scroll, click for context menu.");
 
+			ImGui::Checkbox("Clean! ", &isClean);
 			ImGui::Checkbox("Enable polynomial interpolation", &data->opt_enable_polynomial_interpolation);
 			ImGui::Checkbox("Enable gaussian interpolation", &data->opt_enable_gaussian_interpolation);
+			ImGui::SliderFloat("Sigma", &data->hyper_sigma, 1.f, 100.f);
+			ImGui::SliderFloat("b0", &data->hyper_b0, -5.f, 5.f);
 			ImGui::Checkbox("Enable linear regression", &data->opt_enable_linear_regression);
 			ImGui::Checkbox("Enable ridge regression", &data->opt_enable_ridge_regression);
+			ImGui::SliderFloat("lamda", &data->hyper_lamda, -1.f, 1.f);
 
 			// Typically you would use a BeginChild()/EndChild() pair to benefit from a clipping region + own scrolling.
 			// Here we demonstrate that this can be replaced by simple offsetting + custom drawing + PushClipRect/PopClipRect() calls.
@@ -133,6 +139,13 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 					IM_COL32(255, 255, 0, 255), 2.0f);
 
 			// ------------------------------------------!!!!!!!!!!!!!-----------------------------------
+			if (isClean) {
+				data->points.clear();
+				data->polyPoints.clear();
+				data->minX = 9999999999999999.f;
+				data->maxX = -9999999999999999.f;
+				isClean = false;
+			}
 			// 画点
 			for (int n = 0; n < data->polyPoints.size(); n++) {
 				draw_list->AddCircle(ImVec2(origin.x + data->polyPoints[n][0], origin.y + data->polyPoints[n][1]),
@@ -162,25 +175,27 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			}
 
 			// 高斯基函数
+			Gaussian_Interpolation g(data->hyper_sigma, data->hyper_b0);
 			if (x.size() > 1 && data->opt_enable_gaussian_interpolation) {
-				Eigen::VectorXf weight = gaussian_fitting(x, y);
-				Eigen::VectorXf new_y = gaussian_interpolation(weight, x, data->minX, data->maxX, 100);
+				Eigen::VectorXf weight = g.gaussian_fitting(x, y);
+				Eigen::VectorXf new_y = g.gaussian_interpolation(weight, x, data->minX, data->maxX, 100);
 				Eigen::VectorXf new_x = Eigen::VectorXf::LinSpaced(100, data->minX, data->maxX);
 				plot(new_x, new_y, draw_list, origin, 255, 0, 0);
 			}
 
 			// 线性回归
+			 Regression r(data->hyper_lamda);
 			if (x.size() > 1 && data->opt_enable_linear_regression) {
-				Eigen::VectorXf weight = Linear_Regression(x, y);
-				Eigen::VectorXf new_y = Regression_plot(weight, x, data->minX, data->maxX, 100);
+				Eigen::VectorXf weight = r.Linear_Regression(x, y);
+				Eigen::VectorXf new_y = r.Regression_plot(weight, x, data->minX, data->maxX, 100);
 				Eigen::VectorXf new_x = Eigen::VectorXf::LinSpaced(100, data->minX, data->maxX);
 				plot(new_x, new_y, draw_list, origin, 0, 255, 255);
 			}
 
 			// 岭回归
 			if (x.size() > 1 && data->opt_enable_ridge_regression) {
-				Eigen::VectorXf weight = Ridge_Regression(x, y);
-				Eigen::VectorXf new_y = Regression_plot(weight, x, data->minX, data->maxX, 100);
+				Eigen::VectorXf weight = r.Ridge_Regression(x, y);
+				Eigen::VectorXf new_y = r.Regression_plot(weight, x, data->minX, data->maxX, 100);
 				Eigen::VectorXf new_x = Eigen::VectorXf::LinSpaced(100, data->minX, data->maxX);
 				plot(new_x, new_y, draw_list, origin, 255, 0, 255);
 			}

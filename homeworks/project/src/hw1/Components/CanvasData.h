@@ -14,6 +14,9 @@ struct CanvasData {
 	std::vector<ImVec2> polyPoints;
 	bool adding_point{ true };
 	int poly_point_count{ 0 };
+	float hyper_sigma{ 50.f };
+	float hyper_b0{ 0.f };
+	float hyper_lamda{ 0.02f };
 	float minX{ 9999999999999999.f };
 	float maxX{ -9999999999999999.f };
 	bool opt_enable_polynomial_interpolation{ true };
