@@ -4,6 +4,7 @@
 #include <_deps/imgui/imgui.h>
 
 struct CanvasData {
+	// --------------The origin------------------------
 	std::vector<Ubpa::pointf2> points;
 	Ubpa::valf2 scrolling{ 0.f,0.f };
 	bool opt_enable_grid{ true };
